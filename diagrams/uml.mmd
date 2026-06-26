@@ -1,15 +1,72 @@
 classDiagram
-    %% Replace the placeholders below with your actual classes, attributes, methods, and relationships.
     %% Keep this file updated so it matches your final implementation.
 
-    class ClassName {
-        +type attribute
-        +method() returnType
+    class Owner {
+        +String ownerId
+        +String name
+        +String email
+        +String phone
+        +List~Pet~ pets
+        +addPet(pet: Pet) void
+        +removePet(petId: String) void
+        +getPets() List~Pet~
+        +getTaskSummary() String
     }
 
-    class AnotherClass {
-        +type attribute
-        +method() returnType
+    class Pet {
+        +String petId
+        +String name
+        +String species
+        +String breed
+        +Date birthdate
+        +float weight
+        +Owner owner
+        +List~Task~ tasks
+        +String medicalNotes
+        +addTask(task: Task) void
+        +removeTask(taskId: String) void
+        +getTasks() List~Task~
+        +getAge() int
+        +updateWeight(weight: float) void
     }
 
-    ClassName --> AnotherClass : relationship
+    class Task {
+        +String taskId
+        +TaskType type
+        +String description
+        +DateTime scheduledTime
+        +int duration
+        +boolean isCompleted
+        +int priority
+        +boolean isRecurring
+        +Pet pet
+        +complete() void
+        +reschedule(newTime: DateTime) void
+        +isOverdue() boolean
+        +getPriority() int
+    }
+
+    class TaskType {
+        <<enumeration>>
+        FEEDING
+        WALK
+        MEDICATION
+        APPOINTMENT
+    }
+
+    class Scheduler {
+        +List~Task~ tasks
+        +Map~TaskType_Integer~ priorityWeights
+        +int overdueThreshold
+        +prioritizeTasks() List~Task~
+        +getOverdueTasks() List~Task~
+        +scheduleNext(pet: Pet) Task
+        +addTask(task: Task) void
+        +removeTask(taskId: String) void
+        +checkConflicts() List~Task~
+    }
+
+    Owner "1" --> "0..*" Pet : owns
+    Pet "1" --> "0..*" Task : has
+    Task --> TaskType : typed as
+    Scheduler "1" --> "0..*" Task : manages

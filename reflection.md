@@ -7,6 +7,23 @@
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
 
+A pet owner should be able to,
+- Add a pet and their details.
+- State their time availability.
+- See and make changes to today's generated plan.
+
+The first entities that come to mind are Owner, Pet, Task
+
+Owner - Holds the information about the pet owner, like their name, day's schedule
+Pet - Types of tasks for this type of pet
+Task - Time needed, priority.
+
+I worked with Claude and it suggested adding entities like Medication, Appointment, Veterinarian, TaskLog, Notification.
+
+It also suggested stretch entities like HealthRecord and Caretaker.
+
+I decided to go with Owner, Pet, Task, Medication, Appointment, Veterinarian, TaskLog, HealthRecord, and Caretaker.
+
 **b. Design changes**
 
 - Did your design change during implementation?
