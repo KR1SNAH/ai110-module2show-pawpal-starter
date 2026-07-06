@@ -13,6 +13,19 @@ class TaskType(Enum):
     APPOINTMENT = "appointment"
 
 
+class TaskFrequency(Enum):
+    NONE = "none"
+    DAILY = "daily"
+    WEEKLY = "weekly"
+
+
+# How far to push scheduled_time out for each recurring frequency.
+_FREQUENCY_INTERVALS: dict[TaskFrequency, timedelta] = {
+    TaskFrequency.DAILY: timedelta(days=1),
+    TaskFrequency.WEEKLY: timedelta(weeks=1),
+}
+
+
 class Task:
     def __init__(
         self,
@@ -21,7 +34,7 @@ class Task:
         scheduled_time: datetime,
         duration: int,
         priority: int,
-        is_recurring: bool = False,
+        frequency: TaskFrequency = TaskFrequency.NONE,
         task_id: Optional[str] = None,
     ):
         """Create a care task, auto-generating a task_id if none is given."""
@@ -32,19 +45,32 @@ class Task:
         self.duration = duration
         self.is_completed = False
         self.priority = priority
-        self.is_recurring = is_recurring
+        self.frequency = frequency
         self.pet: Optional[Pet] = None
         self.completed_at: Optional[datetime] = None
 
-    def mark_complete(self) -> None:
-        """Mark the task done; recurring tasks immediately roll forward to their next daily occurrence."""
+    def mark_complete(self) -> Optional["Task"]:
+        """Mark this occurrence done; if it repeats, create, attach, and return the next occurrence."""
         self.is_completed = True
         self.completed_at = datetime.now()
-        if self.is_recurring:
-            # Recurring tasks roll forward to their next daily occurrence
-            # instead of a new Task instance being created for it.
-            self.scheduled_time = self.scheduled_time + timedelta(days=1)
-            self.is_completed = False
+
+        interval = _FREQUENCY_INTERVALS.get(self.frequency)
+        if interval is None:
+            return None
+
+        next_task = Task(
+            self.task_type,
+            self.description,
+            self.scheduled_time + interval,
+            self.duration,
+            self.priority,
+            frequency=self.frequency,
+        )
+        if self.pet is not None:
+            # A new Task instance represents the next occurrence, rather than
+            # mutating this one -- so completed occurrences stay in history.
+            self.pet.add_task(next_task)
+        return next_task
 
     def reschedule(self, new_time: datetime) -> None:
         """Change the task's scheduled time."""
@@ -204,6 +230,25 @@ class Scheduler:
             if not t.is_completed and t.is_overdue(self.overdue_threshold)
         ]
 
+    def sort_by_time(self, tasks: Optional[list[Task]] = None) -> list[Task]:
+        """Return tasks ordered earliest-to-latest by scheduled_time."""
+        # scheduled_time is already a datetime, so comparing it directly sorts
+        # correctly across both time-of-day and date -- no string parsing needed.
+        return sorted(tasks if tasks is not None else self.tasks, key=lambda t: t.scheduled_time)
+
+    def filter_tasks(
+        self,
+        pet_name: Optional[str] = None,
+        is_completed: Optional[bool] = None,
+    ) -> list[Task]:
+        """Return tasks matching the given pet name and/or completion status; leave either as None to skip that filter."""
+        result = self.tasks
+        if pet_name is not None:
+            result = [t for t in result if t.pet is not None and t.pet.name == pet_name]
+        if is_completed is not None:
+            result = [t for t in result if t.is_completed == is_completed]
+        return result
+
     def schedule_next(self, pet: Pet) -> Optional[Task]:
         """Return the highest-priority incomplete task for the given pet, or None if it has none."""
         pending = [t for t in pet.tasks if not t.is_completed]
@@ -211,17 +256,39 @@ class Scheduler:
             return None
         return sorted(pending, key=lambda t: (-self._score(t), t.scheduled_time))[0]
 
-    def check_conflicts(self) -> list[Task]:
-        """Return tasks whose scheduled time windows overlap another task for this owner."""
-        # Conflicts are scoped to this owner's tasks across all their pets,
-        # since one owner cannot physically be in two places at once.
-        conflicting: set[Task] = set()
+    def find_conflicts(self) -> list[tuple[Task, Task]]:
+        """Return (task_a, task_b) pairs whose scheduled time windows overlap, earliest-start first."""
+        # Conflicts are scoped to this owner's tasks across all their pets --
+        # covers both "same pet double-booked" and "owner can't be two places
+        # at once for two different pets" in one sweep.
+        pairs: list[tuple[Task, Task]] = []
         ordered = sorted(self.tasks, key=lambda t: t.scheduled_time)
         for i, task_a in enumerate(ordered):
             end_a = task_a.scheduled_time + timedelta(minutes=task_a.duration)
             for task_b in ordered[i + 1:]:
                 if task_b.scheduled_time >= end_a:
                     break
-                conflicting.add(task_a)
-                conflicting.add(task_b)
+                pairs.append((task_a, task_b))
+        return pairs
+
+    def check_conflicts(self) -> list[Task]:
+        """Return the distinct tasks involved in any scheduling conflict."""
+        conflicting: set[Task] = set()
+        for task_a, task_b in self.find_conflicts():
+            conflicting.add(task_a)
+            conflicting.add(task_b)
         return sorted(conflicting, key=lambda t: t.scheduled_time)
+
+    def get_conflict_warnings(self) -> list[str]:
+        """Return a plain-text warning for each scheduling conflict instead of raising or crashing."""
+        warnings: list[str] = []
+        for task_a, task_b in self.find_conflicts():
+            pet_a = task_a.pet.name if task_a.pet is not None else "Unassigned"
+            pet_b = task_b.pet.name if task_b.pet is not None else "Unassigned"
+            scope = "same pet" if pet_a == pet_b else "different pets"
+            time_str = task_a.scheduled_time.strftime("%Y-%m-%d %H:%M")
+            warnings.append(
+                f"Warning: '{task_a.description}' ({pet_a}) at {time_str} overlaps "
+                f"with '{task_b.description}' ({pet_b}) -- {scope}."
+            )
+        return warnings

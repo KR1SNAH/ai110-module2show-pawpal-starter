@@ -51,10 +51,19 @@ Bottlenecks:
 - What constraints does your scheduler consider (for example: time, priority, preferences)?
 - How did you decide which constraints mattered most?
 
+The scheduler considers four things, 
+1. Explicit Priority, if the owner says it is high priority, it gets the largest weight.
+2. Task type based on their logical importance
+3. Overdue status, high weightage when a task is overdue
+4. Time, it is used in conflict detection and sorting
+
+
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
+
+Conflict detection is passive as in there is no way to see if tasks are overlapping just if they start at the same time. 
 
 ---
 
@@ -64,6 +73,9 @@ Bottlenecks:
 
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
 - What kinds of prompts or questions were most helpful?
+
+- I used Claude across the full lifecycle of the project like Design brainstorming, implementation, concept explanation, verification, and testing.
+
 
 **b. Judgment and verification**
 

@@ -75,14 +75,12 @@ Sample test output:
 
 ## 📐 Smarter Scheduling
 
-> Fill in once you've implemented scheduling logic.
-
 | Feature | Method(s) | Notes |
 |---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Task sorting | `Scheduler.sort_by_time(tasks=None)` | Sorts tasks earliest-to-latest using `key=lambda t: t.scheduled_time` on the `datetime` directly (no string parsing needed). Defaults to all of the owner's tasks if none are passed in. `Scheduler.prioritize_tasks()` covers priority-based ordering separately, via `_score()` (priority × 10 + task-type weight × 5 + a +100 overdue bonus). |
+| Filtering | `Scheduler.filter_tasks(pet_name=None, is_completed=None)` | Filters the owner's tasks by pet name and/or completion status; leaving either argument as `None` skips that filter, so it composes (e.g. "Mochi's pending tasks"). |
+| Conflict handling | `Scheduler.find_conflicts()`, `Scheduler.check_conflicts()`, `Scheduler.get_conflict_warnings()` | A sweep-line pass (sort by start time, compare against the running end time) detects overlapping time windows across *all* of an owner's pets — catching both a double-booked pet and two different pets needing the owner at once. `find_conflicts()` returns the raw `(task_a, task_b)` overlap pairs, `check_conflicts()` returns the distinct tasks involved, and `get_conflict_warnings()` turns each pair into a plain-text warning string (e.g. `"...overlaps with '...' -- same pet."`) instead of raising an exception, so a scheduling conflict never crashes the app. |
+| Recurring tasks | `Task.mark_complete()`, `TaskFrequency` (`NONE`, `DAILY`, `WEEKLY`) | Completing a task with a non-`NONE` `frequency` creates and returns a **new** `Task` instance scheduled `+1 day` or `+1 week` out (via `_FREQUENCY_INTERVALS`) and attaches it to the same pet with `Pet.add_task()`. The completed occurrence is left in place as history rather than being mutated/reused. |
 
 ## 📸 Demo Walkthrough
 
