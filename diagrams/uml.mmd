@@ -42,7 +42,7 @@ classDiagram
         +Pet pet
         +complete() void
         +reschedule(newTime: DateTime) void
-        +isOverdue() boolean
+        +isOverdue(thresholdMinutes: int) boolean
         +getPriority() int
     }
 
@@ -55,18 +55,17 @@ classDiagram
     }
 
     class Scheduler {
-        +List~Task~ tasks
+        +Owner owner
         +Map~TaskType_Integer~ priorityWeights
         +int overdueThreshold
+        +tasks List~Task~ <<derived from owner.pets>>
         +prioritizeTasks() List~Task~
         +getOverdueTasks() List~Task~
         +scheduleNext(pet: Pet) Task
-        +addTask(task: Task) void
-        +removeTask(taskId: String) void
         +checkConflicts() List~Task~
     }
 
     Owner "1" --> "0..*" Pet : owns
     Pet "1" --> "0..*" Task : has
     Task --> TaskType : typed as
-    Scheduler "1" --> "0..*" Task : manages
+    Scheduler "1" --> "1" Owner : manages

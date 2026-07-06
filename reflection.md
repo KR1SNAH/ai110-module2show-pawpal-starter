@@ -20,14 +20,27 @@ Task - Time needed, priority.
 
 I worked with Claude and it suggested adding entities like Medication, Appointment, Veterinarian, TaskLog, Notification.
 
-It also suggested stretch entities like HealthRecord and Caretaker.
+It also suggested stretch entities like  Medication, Appointment, Veterinarian, TaskLog, HealthRecord, and Caretaker..
 
-I decided to go with Owner, Pet, Task, Medication, Appointment, Veterinarian, TaskLog, HealthRecord, and Caretaker.
+I decided to go with Owner, Pet, Task, Scheduler.
 
 **b. Design changes**
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
+
+I asked Claude to check if there any relationships or potential logic bottlenecks it missed to address.
+
+Relationships:
+- It stated that it missed implementing bidirectional relationship between Pet and Owner like Pet.owner and Owner.pets.
+- One relationship issue is that Scheduler.tasks if disconnected from Pet.tasks
+- The last issue it stated was there was no connection between Owner and Scheduler
+
+Bottlenecks:
+- Overdue logic is duplicated across Task and Scheduler classes
+- check_conflicts() scope is undefined
+- No ID generation strategy for class ids
+- Recurring tasks have no regeneration logic
 
 ---
 
