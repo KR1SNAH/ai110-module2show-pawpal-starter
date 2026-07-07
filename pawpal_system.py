@@ -212,7 +212,7 @@ class Scheduler:
         """Return all tasks across the owner's pets, computed live rather than cached."""
         return [task for pet in self.owner.pets for task in pet.tasks]
 
-    def _score(self, task: Task) -> int:
+    def get_score(self, task: Task) -> int:
         """Compute a task's ranking score from its priority, task-type weight, and overdue status."""
         type_weight = self.priority_weights.get(task.task_type, 0)
         overdue_bonus = 100 if task.is_overdue(self.overdue_threshold) else 0
@@ -221,7 +221,7 @@ class Scheduler:
     def prioritize_tasks(self) -> list[Task]:
         """Return incomplete tasks ranked by score, soonest-scheduled first among ties."""
         pending = [t for t in self.tasks if not t.is_completed]
-        return sorted(pending, key=lambda t: (-self._score(t), t.scheduled_time))
+        return sorted(pending, key=lambda t: (-self.get_score(t), t.scheduled_time))
 
     def get_overdue_tasks(self) -> list[Task]:
         """Return incomplete tasks that are overdue using this scheduler's configured threshold."""
@@ -254,7 +254,7 @@ class Scheduler:
         pending = [t for t in pet.tasks if not t.is_completed]
         if not pending:
             return None
-        return sorted(pending, key=lambda t: (-self._score(t), t.scheduled_time))[0]
+        return sorted(pending, key=lambda t: (-self.get_score(t), t.scheduled_time))[0]
 
     def find_conflicts(self) -> list[tuple[Task, Task]]:
         """Return (task_a, task_b) pairs whose scheduled time windows overlap, earliest-start first."""

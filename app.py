@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import date, datetime
 
-from pawpal_system import Owner, Pet, Task, TaskType, TaskFrequency
+from pawpal_system import Owner, Pet, Task, TaskType, TaskFrequency, Scheduler
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
@@ -163,24 +163,157 @@ if all_tasks:
             for p, t in all_tasks
         ]
     )
+
+    st.markdown("#### Update or Remove a Task")
+
+    # task_id (a plain string) is used as the selectbox option, not the Task
+    # object itself, since Streamlit's widget state is built for primitive values.
+    tasks_by_id = {t.task_id: t for _, t in all_tasks}
+
+    def _format_task(task_id: str) -> str:
+        t = tasks_by_id[task_id]
+        pet_name = t.pet.name if t.pet is not None else "Unassigned"
+        status = "done" if t.is_completed else "pending"
+        when = t.scheduled_time.strftime("%Y-%m-%d %H:%M")
+        return f"[{status}] {pet_name} - {t.description} ({when})"
+
+    # Outside the form so switching tasks immediately refreshes the fields below.
+    selected_task_id = st.selectbox(
+        "Select a task to update or remove",
+        list(tasks_by_id.keys()),
+        format_func=_format_task,
+        key="manage_task_selector",
+    )
+    selected_task = tasks_by_id[selected_task_id]
+
+    with st.form("manage_task_form"):
+        mcol1, mcol2 = st.columns(2)
+        with mcol1:
+            edited_description = st.text_input(
+                "Description",
+                value=selected_task.description,
+                key=f"manage_description_{selected_task_id}",
+            )
+        with mcol2:
+            edited_duration = st.number_input(
+                "Duration (minutes)",
+                min_value=1,
+                max_value=240,
+                value=selected_task.duration,
+                key=f"manage_duration_{selected_task_id}",
+            )
+        mcol3, mcol4, mcol5 = st.columns(3)
+        with mcol3:
+            edited_date = st.date_input(
+                "Date",
+                value=selected_task.scheduled_time.date(),
+                key=f"manage_date_{selected_task_id}",
+            )
+        with mcol4:
+            edited_clock = st.time_input(
+                "Time",
+                value=selected_task.scheduled_time.time(),
+                key=f"manage_time_{selected_task_id}",
+            )
+        with mcol5:
+            edited_priority = st.slider(
+                "Priority (1=low, 5=high)",
+                min_value=1,
+                max_value=5,
+                value=selected_task.priority,
+                key=f"manage_priority_{selected_task_id}",
+            )
+
+        ucol1, ucol2, ucol3 = st.columns(3)
+        with ucol1:
+            update_clicked = st.form_submit_button("Update task")
+        with ucol2:
+            complete_clicked = st.form_submit_button("Mark complete")
+        with ucol3:
+            remove_clicked = st.form_submit_button("Remove task")
+
+        if update_clicked:
+            selected_task.description = edited_description
+            selected_task.duration = int(edited_duration)
+            selected_task.priority = edited_priority
+            selected_task.reschedule(datetime.combine(edited_date, edited_clock))
+            st.success(f"Updated '{selected_task.description}'.")
+        elif complete_clicked:
+            next_task = selected_task.mark_complete()
+            if next_task is not None:
+                st.success(
+                    f"Marked '{selected_task.description}' complete. Next occurrence "
+                    f"scheduled for {next_task.scheduled_time.strftime('%Y-%m-%d %H:%M')}."
+                )
+            else:
+                st.success(f"Marked '{selected_task.description}' complete.")
+        elif remove_clicked:
+            if selected_task.pet is not None:
+                selected_task.pet.remove_task(selected_task.task_id)
+            st.success(f"Removed '{selected_task.description}'.")
 else:
     st.info("No tasks yet. Add one above.")
 
 st.divider()
 
 st.subheader("Build Schedule")
-st.caption("This button should call your scheduling logic once you implement it.")
+
+# Scheduler is bound to this owner and persists across reruns; its `tasks`
+# property reads live from owner.pets, so it never needs to be refreshed
+# when pets/tasks change elsewhere on the page.
+if "scheduler" not in st.session_state:
+    st.session_state.scheduler = Scheduler(owner)
+scheduler = st.session_state.scheduler
+
+scheduler.overdue_threshold = st.slider(
+    "Overdue grace period (minutes)",
+    min_value=0,
+    max_value=120,
+    value=scheduler.overdue_threshold,
+    key="overdue_threshold_slider",
+)
 
 if st.button("Generate schedule"):
-    st.warning(
-        "Not implemented yet. Next step: create your scheduling logic (classes/functions) and call it here."
-    )
-    st.markdown(
-        """
-Suggested approach:
-1. Design your UML (draft).
-2. Create class stubs (no logic).
-3. Implement scheduling behavior.
-4. Connect your scheduler here and display results.
-"""
-    )
+    st.session_state.schedule_generated = True
+
+if st.session_state.get("schedule_generated"):
+    prioritized = scheduler.prioritize_tasks()
+
+    if prioritized:
+        st.write("Prioritized task order (highest priority first):")
+        st.table(
+            [
+                {
+                    "Rank": rank,
+                    "Pet": t.pet.name if t.pet is not None else "Unassigned",
+                    "Type": t.task_type.value,
+                    "Description": t.description,
+                    "When": t.scheduled_time.strftime("%Y-%m-%d %H:%M"),
+                    "Score": scheduler.get_score(t),
+                    "Overdue": t.is_overdue(scheduler.overdue_threshold),
+                }
+                for rank, t in enumerate(prioritized, start=1)
+            ]
+        )
+        st.caption(
+            "Score = priority x 10 + task-type weight x 5 + 100 if overdue. "
+            "Ties break by soonest scheduled time."
+        )
+    else:
+        st.info("No pending tasks to schedule.")
+
+    overdue = scheduler.get_overdue_tasks()
+    if overdue:
+        st.error(
+            f"{len(overdue)} task(s) are overdue: "
+            + ", ".join(t.description for t in overdue)
+        )
+
+    conflict_warnings = scheduler.get_conflict_warnings()
+    if conflict_warnings:
+        for warning in conflict_warnings:
+            st.warning(warning)
+    else:
+        st.success("No scheduling conflicts detected.")
+
+    st.caption(owner.get_task_summary())
