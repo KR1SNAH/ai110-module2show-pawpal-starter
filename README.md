@@ -22,6 +22,17 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## ✨ Features
+
+- **Priority scoring** — `Scheduler.get_score()` ranks tasks by priority x 10, plus a task-type weight x 5 (medication > appointment > feeding > walk), plus a bonus if the task is overdue.
+- **Prioritized scheduling** — `Scheduler.prioritize_tasks()` and `Scheduler.schedule_next()` return pending tasks ranked by that score, soonest-scheduled first on ties.
+- **Sorting by time** — `Scheduler.sort_by_time()` orders tasks earliest-to-latest by their `scheduled_time`.
+- **Filtering** — `Scheduler.filter_tasks()` narrows the task list by pet and/or completion status, and the two filters compose.
+- **Overdue detection** — `Task.is_overdue()` and `Scheduler.get_overdue_tasks()` flag tasks past their scheduled end time plus a configurable grace period.
+- **Conflict warnings** — `Scheduler.find_conflicts()` / `check_conflicts()` / `get_conflict_warnings()` detect overlapping task windows across all of an owner's pets and report them as plain-text warnings instead of crashing.
+- **Daily & weekly recurrence** — `Task.mark_complete()` auto-generates and attaches the next occurrence for tasks with `TaskFrequency.DAILY` or `WEEKLY`, leaving the completed occurrence in place as history.
+- **Owner & pet management** — add/remove pets and tasks, track pet age and weight, and summarize an owner's task load with `Owner.get_task_summary()`.
+
 ## Getting started
 
 ### Setup
@@ -84,12 +95,42 @@ Sample test output:
 
 ## 📸 Demo Walkthrough
 
-Describe your app in numbered steps so a reader can follow along without watching a video:
+### Main UI features
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+Running `streamlit run app.py` opens a single-page app with these interactive pieces:
+
+- **Owner panel** — edit the owner's name, email, and phone; kept in `st.session_state` so it survives Streamlit reruns.
+- **Add a Pet** — a form for name, species, breed, birthdate, weight, and medical notes; submitted pets appear in a live table with their computed age.
+- **Schedule a Task** — a form to add a task to any existing pet, setting its type (feeding/walk/medication/appointment), description, date/time, duration, priority (1–5), and recurrence (none/daily/weekly).
+- **Task list** — every task across all of the owner's pets, filterable by pet and by status (pending/completed), with a "Sort by time" control (none/ascending/descending).
+- **Update or Remove a Task** — select any task from the filtered list to edit its details, mark it complete, or delete it.
+- **Build Schedule** — an "overdue grace period" slider plus a "Generate schedule" button that shows the prioritized task order, flags overdue tasks, surfaces conflict warnings, and prints an owner-level task summary.
+
+### Example workflow
+
+1. **Add a pet** — fill out the "Add a Pet" form (e.g., "Mochi", a dog) and submit; it appears in the pets table with its computed age.
+2. **Schedule a task** — use "Schedule a Task" to add a daily "Morning walk" for Mochi at 8:00 AM, priority 3. Add a second, overlapping task (e.g., "Vet checkup" at 8:10 AM) to see conflict detection in action later.
+3. **View today's schedule** — click "Generate schedule" to see the prioritized task order, any overdue flags, and any conflict warnings for the day.
+4. **Complete a task** — select the "Morning walk" under "Update or Remove a Task" and click "Mark complete"; since it repeats daily, its next occurrence is scheduled and attached to Mochi automatically.
+
+### Key Scheduler behaviors shown
+
+- **Sorting** — toggling "Sort by time" to Ascending/Descending re-orders the task table via `Scheduler.sort_by_time()`.
+- **Prioritization** — "Generate schedule" ranks pending tasks with `Scheduler.prioritize_tasks()`, displaying each task's computed score and overdue status.
+- **Conflict warnings** — the overlapping "Morning walk" and "Vet checkup" from step 2 trigger a warning for each overlapping pair from `Scheduler.get_conflict_warnings()`, instead of crashing the app.
+- **Recurring tasks** — clicking "Mark complete" on the daily "Morning walk" calls `Task.mark_complete()`, which schedules and attaches its next occurrence one day later while keeping the completed occurrence in history.
+
+### Sample CLI output
+
+`main.py` builds an owner with two cats (Sandy and Tommy), gives each several morning tasks — including two identical "Morning dry food" entries for Tommy — and prints every task caught by `Scheduler.check_conflicts()`:
+
+```
+$ python main.py
+Morning dry food 2026-07-07 02:09:25.218127
+Morning wet food 2026-07-07 02:09:25.218127
+Morning dry food 2026-07-07 02:09:25.218127
+```
+
+Tommy's two "Morning dry food" tasks and Sandy's "Morning wet food" task were all scheduled for the exact same start time (each built from the same `now + 1 hour` anchor in `main.py`), so all three overlap each other and are reported as conflicts. Sandy's medication, Sandy's vet appointment, and Tommy's walk/deworming tasks don't overlap with anything and are correctly left out. The print order comes from iterating a `set` of the conflicting tasks, so it isn't guaranteed to match scheduled-time order.
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->

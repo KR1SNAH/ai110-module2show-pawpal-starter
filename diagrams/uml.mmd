@@ -38,9 +38,10 @@ classDiagram
         +int duration
         +boolean isCompleted
         +int priority
-        +boolean isRecurring
+        +TaskFrequency frequency
         +Pet pet
-        +complete() void
+        +DateTime completedAt
+        +markComplete() Task
         +reschedule(newTime: DateTime) void
         +isOverdue(thresholdMinutes: int) boolean
         +getPriority() int
@@ -54,18 +55,32 @@ classDiagram
         APPOINTMENT
     }
 
+    class TaskFrequency {
+        <<enumeration>>
+        NONE
+        DAILY
+        WEEKLY
+    }
+
     class Scheduler {
         +Owner owner
         +Map~TaskType_Integer~ priorityWeights
         +int overdueThreshold
         +tasks List~Task~ <<derived from owner.pets>>
+        +getScore(task: Task) int
         +prioritizeTasks() List~Task~
         +getOverdueTasks() List~Task~
+        +sortByTime(tasks: List~Task~) List~Task~
+        +filterTasks(petName: String, isCompleted: boolean) List~Task~
         +scheduleNext(pet: Pet) Task
+        +findConflicts() List~Tuple~Task_Task~~
         +checkConflicts() List~Task~
+        +getConflictWarnings() List~String~
     }
 
     Owner "1" --> "0..*" Pet : owns
     Pet "1" --> "0..*" Task : has
     Task --> TaskType : typed as
+    Task --> TaskFrequency : typed as
+    Task ..> Task : generates next occurrence
     Scheduler "1" --> "1" Owner : manages

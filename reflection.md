@@ -174,10 +174,15 @@ With more time I would test: multi-owner isolation (confirming one owner's `Sche
 
 - What part of this project are you most satisfied with?
 
+I am satisfied with the simplicity and the collaboration efforts with the AI.
+
 **b. What you would improve**
 
 - If you had another iteration, what would you improve or redesign?
 
+I would definitely love to make the UI more presentable and intuitive. I feel the UI is usable enough to not cause any confusion but it would be so muc better if it could be used by anyone. I wish I could make it more complex but I am not able to be as creative in coming up with ideas for features.
+
 **c. Key takeaway**
 
 - What is one important thing you learned about designing systems or working with AI on this project?
+I realized that system design is a very important part of a project and that I am not the best at it. I can now use AI to learn this and create my own designs and be in control instead of just asking AI to do everything for me.

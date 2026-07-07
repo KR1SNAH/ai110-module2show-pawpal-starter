@@ -230,11 +230,15 @@ class Scheduler:
             if not t.is_completed and t.is_overdue(self.overdue_threshold)
         ]
 
-    def sort_by_time(self, tasks: Optional[list[Task]] = None) -> list[Task]:
-        """Return tasks ordered earliest-to-latest by scheduled_time."""
+    def sort_by_time(self, tasks: Optional[list[Task]] = None, order: str = "ASC") -> list[Task]:
+        """Return tasks ordered by scheduled_time.
+
+        order: "ASC" for earliest-to-latest, "DESC" for latest-to-earliest.
+        """
         # scheduled_time is already a datetime, so comparing it directly sorts
         # correctly across both time-of-day and date -- no string parsing needed.
-        return sorted(tasks if tasks is not None else self.tasks, key=lambda t: t.scheduled_time)
+        items = tasks if tasks is not None else self.tasks
+        return sorted(items, key=lambda t: t.scheduled_time, reverse=(order == "DESC"))
 
     def filter_tasks(
         self,
